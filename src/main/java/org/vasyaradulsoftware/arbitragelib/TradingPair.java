@@ -121,13 +121,15 @@ public class TradingPair
         }
     }
 
-    public String getPriceInfo()
+    public class NoTickersExeption extends Exception {}
+
+    public String getPriceInfo() throws NoTickersExeption
     {
         checkTickersStatus();
         updateTimestamp();
         if (tickers.isEmpty())
         {
-            return "Ошибка: тикер не обнаружен";
+            throw new NoTickersExeption();
         }
         String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " price:";
         for (Ticker t : tickers)
@@ -138,12 +140,12 @@ public class TradingPair
         return info;
     }
 
-    public String getSpreadInfo()
+    public String getSpreadInfo() throws NoTickersExeption
     {
         checkTickersStatus();
         updateTimestamp();
         if (bunches.isEmpty()) {
-            return "Ошибка: тикер не обнаружен";
+            throw new NoTickersExeption();
         }
         sortBunchesBySpread();
         String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " - " + tickers.get(0).getPrice().toString() + "\nСпреды:";

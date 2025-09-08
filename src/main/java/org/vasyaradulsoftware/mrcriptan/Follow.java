@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.vasyaradulsoftware.arbitragelib.TradingPair;
+import org.vasyaradulsoftware.arbitragelib.TradingPair.NoTickersExeption;
 
 public class Follow implements Runnable, Closeable {
 
@@ -55,11 +56,19 @@ public class Follow implements Runnable, Closeable {
                 break;
             }
 
+            String text;
+            try {
+                text = tradingPair.getSpreadInfo();
+            } catch (NoTickersExeption e) {
+                text = "Ошибка: тикер не найден";
+                close();
+            }
+
             EditMessageText edit = EditMessageText
                 .builder()
                 .chatId(message.getChatId())
                 .messageId(message.getMessageId())
-                .text(tradingPair.getSpreadInfo())
+                .text(text)
                 .build();
 
             try {
