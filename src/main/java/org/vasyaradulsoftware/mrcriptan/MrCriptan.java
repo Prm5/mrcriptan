@@ -1,9 +1,7 @@
 package org.vasyaradulsoftware.mrcriptan;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Properties;
 
 import org.vasyaradulsoftware.arbitragelib.TradingPair;
