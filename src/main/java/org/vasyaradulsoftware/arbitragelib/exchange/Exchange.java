@@ -1,10 +1,15 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.util.function.Consumer;
-
 import org.vasyaradulsoftware.arbitragelib.Ticker;
 
-public interface Exchange extends Consumer<String> {
+/*
+ * Интерфейс биржи.
+ * Через классы, реализующие этот интерфейс происходит взаимодействие с API конкретной биржи.
+ * Чтобы добавить поддержку новой биржи создайте реализацию этого интерфейса для этой биржи.
+ * Абстрактный класс WebSocketExchange удобен бирж, API которых поддерживает WebSocket. Лучше используйте сразу его.
+ * Пока что функционал довольно скудный, добавляйте новые методы по мере необходимости.
+ */
+public interface Exchange {
 
     public Ticker subscribeTicker(String baseCurrency, String quoteCurrency);
     public void unsubscribeTicker(Ticker ticker);

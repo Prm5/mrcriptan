@@ -45,9 +45,7 @@ public class Bot implements LongPollingSingleThreadUpdateConsumer, Runnable {
                 .filter(chat -> chat.getId() == (update.getMessage().getChatId()))
                 .iterator()
                 .next()
-                .consume(update.getMessage())
-            ;
-
+                .consume(update.getMessage());
         }
     }
 }

@@ -10,7 +10,7 @@ public class MrCriptan {
 
     public static void main(String[] args)
     {    
-        TradingPair.init();
+        TradingPair.init(); //там создаются инстансы всех бирж и кладутся в List
 
         String rootPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
         System.out.println(rootPath);
@@ -21,9 +21,10 @@ public class MrCriptan {
             System.out.println(e);
             return;
         }
-        String botToken = properties.getProperty("telegramBotToken");
-        new Thread(new Bot(botToken)).start();
+        String botToken = properties.getProperty("telegramBotToken"); //это всё получение токена который лежит в файлике
+        new Thread(new Bot(botToken)).start(); //запуск бота
 
+        //тест
         /**
         TradingPair p = TradingPair.follow("BTC", "USDT");
 
