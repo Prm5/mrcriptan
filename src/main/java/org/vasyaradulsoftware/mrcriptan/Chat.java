@@ -49,14 +49,19 @@ public class Chat {
                     e.printStackTrace();
                 }
 
-            } else if (command[0].equals("/follow")) {
-
-                if (command.length == 2) {
+            } else if (command[0].equals("/follow"))
+            {
+                if (command.length == 2)
+                {
                     follows.add(new Follow(command[1], "USDT", id, telegramClient));
                 }
-
-            } else if (command[0].equals("/unfollow")) {
-
+                if (command.length == 3)
+                {
+                    follows.add(new Follow(command[1], command[2], id, telegramClient));
+                }
+            }
+            else if (command[0].equals("/unfollow"))
+            {
                 Iterator<Follow> i = follows.iterator();
                 while (i.hasNext()) {
                     i.next().close();

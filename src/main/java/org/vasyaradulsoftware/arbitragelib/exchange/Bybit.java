@@ -37,7 +37,9 @@ public class Bybit extends WebSocketExchange  {
         return new BybitMessage(message);
     }
 
-    protected class BybitMessage extends JSONObject implements Message {
+    protected class BybitMessage extends JSONObject implements Message
+    {
+        private static final String[] quotes = {"USDT", "USDC", "USD1", "USD", "EUR", "BTC", "MNT", "SOL", "ETH"};
 
         public BybitMessage(String message) {
             super(message);
@@ -86,10 +88,9 @@ public class Bybit extends WebSocketExchange  {
         @Override
         public String getUpdateBaseCurrency() {
             String ticker = this.getString("topic").split("[.]")[1];
-            String[] quotes = {"USDT", "USD"};
             for (String quote : quotes) {
-                if (ticker.contains(quote)) {
-                    return ticker.replace(quote, "");
+                if (ticker.substring(ticker.length() - quote.length(), ticker.length()).equals(quote)) {
+                    return ticker.substring(0, ticker.length() - quote.length());
                 }
             }
             return null;
@@ -98,9 +99,8 @@ public class Bybit extends WebSocketExchange  {
         @Override
         public String getUpdateQuoteCurrency() {
             String ticker = this.getString("topic").split("[.]")[1];
-            String[] quotes = {"USDT", "USD"};
             for (String quote : quotes) {
-                if (ticker.contains(quote)) {
+                if (ticker.substring(ticker.length() - quote.length(), ticker.length()).equals(quote)) {
                     return quote;
                 }
             }
