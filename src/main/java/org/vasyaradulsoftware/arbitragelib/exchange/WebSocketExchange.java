@@ -14,7 +14,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Ticker;
 import org.vasyaradulsoftware.arbitragelib.WebSocketCallbackInvoker;
-
+import org.vasyaradulsoftware.arbitragelib.Message;
 import org.vasyaradulsoftware.arbitragelib.Request;
 /*
  * Этот класс позволяет использовать биржи с поддержкой WebSocket.
@@ -42,26 +42,59 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
      * Метод должен возвращать готовый для отправки запрос на подписку на обновление цены актива.
      * Запрос на подписку для каждой биржи специфичен. По этому реалицация этого метода должна быть своя для каждой биржи.
      * Ознакомьтесь с документацией API интересующей вас биржи для того чтобы понять как вы должны реализовывать этот метод.
-     * Метод принимает ссылку на структуру данных Ticker, которая служит обёрткой для значения цены актива.
-     * Этот класс впоследствии самостоятельно будет обновлять цену в переданном Ticker'е по мере поступления апдейтов от биржи, вам лишь требуется
-     * сгенерировать запрос исходя исходя из названия базовой валюты (base currency) и валюты котировки (quote currency) которые хранятся в
-     * структуре данных Ticker. Также метод принимает ID запроса (reqId) который должен содержаться в возвращаемом запросе.
      */
-    protected abstract JSONObject generateSubscribeTickerRequest(Ticker ticker, String reqId);
+    protected abstract JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId);
 
     /*
      * Метод для создания запроса на отписку от обновлений цены. Всё тоже самое что и в предыдужем методе, только для отписки.
      */
-    protected abstract JSONObject generateUnsubscribeTickerRequest(Ticker ticker, String reqId);
+    protected abstract JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId);
 
     /*
-     * Этот метод вызывается всегда когда API биржи присылает сообщение по протоколу WebSocket.
-     * Он должен обработать полученное сообщение, формат которого описан в API интересующей вас биржи и специфичен для каждой биржи.
-     * Могут приходить как ответы на запросы, так и обновления по подпискам.
-     * В случае ответа добавляйте тикер в список подписок или сообщайте тикеру что подписка не удалась.
-     * В случае апдейта обновляйте цену нужного тикера.
+     * Метод вызывается при при получении сообщения от ВебСокета и должен возвращять инстанс класса, реалезующего интерфейс Message.
+     * Интерфейс Message нужен для получения информации из сообений, полученных от API биржи.
      */
-    protected abstract void handleMessage(JSONObject message);
+    protected abstract Message parse(String message);
+
+    private void handleMessage(Message message)
+    {
+        if (message.isResponce() && hasRequest(message.getResponceId())) { handleResponse(message); }
+        else if (message.isUpdate()) { handleUpdate(message); }
+        else { System.out.println(message); }
+    }
+
+    private void handleResponse(Message message)
+    {
+        Ticker ticker = completeRequest(message.getResponceId()).getTicker();
+        if (message.isSubscribedSuccessfulResponce())
+        {
+            ticker.setSubscribedStatus();
+            subscribtions.add(ticker);
+        }
+        else if (message.isUnsubscribedSuccessfulResponce())
+        {
+            subscribtions.remove(ticker);
+        }
+        else if(message.isSubscribeErrorResponce())
+        {
+            ticker.subscribingUnsuccessful();
+            System.out.println(message);
+        }
+    }
+
+    private void handleUpdate(Message message)
+    {
+        if (message.isUpdateChannelTickers())
+        {
+            subscribtions
+                .stream()
+                .forEach(t ->
+                {
+                    if (message.getUpdateBaseCurrency().equals(t.getBaseCurrency()) && message.getUpdateQuoteCurrency().equals(t.getQuoteCurrency()))
+                        t.update(message.getUpdateLastPrice(), message.getUpdateTimestamp());
+                });
+        }
+    }
 
     protected Request completeRequest(String reqId) {
         return requests.remove(reqId);
@@ -112,7 +145,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
 
             ticker.setSubscribingStatus();
             String reqId = regRequest(new Request(ticker));
-            updateWebSocketAndSend(generateSubscribeTickerRequest(ticker, reqId).toString());
+            updateWebSocketAndSend(generateSubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), reqId).toString());
 
             return ticker;
         }
@@ -124,7 +157,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
 
             String reqId = regRequest(new Request(ticker));
             
-            updateWebSocketAndSend(generateUnsubscribeTickerRequest(ticker, reqId).toString());
+            updateWebSocketAndSend(generateUnsubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), reqId).toString());
         }
     }
 
@@ -136,7 +169,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     @Override
     public void accept(String message) {
         try {
-            handleMessage(new JSONObject(message));
+            handleMessage(parse(message));
         } catch (JSONException e) {
             e.printStackTrace();
         }

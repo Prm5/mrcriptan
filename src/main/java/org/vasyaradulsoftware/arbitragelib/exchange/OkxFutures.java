@@ -4,7 +4,7 @@ import java.net.URISyntaxException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.vasyaradulsoftware.arbitragelib.Ticker;
+import org.vasyaradulsoftware.arbitragelib.Message;
 
 public class OkxFutures extends Okx
 {
@@ -26,7 +26,7 @@ public class OkxFutures extends Okx
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(Ticker ticker, String reqId)
+    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
     {
         return new JSONObject()
             .put("id", reqId)
@@ -35,13 +35,13 @@ public class OkxFutures extends Okx
                 .put(new JSONObject()
                     .put("channel", "tickers")
                     //.put("instType", instType)
-                    .put("instId", ticker.getBaseCurrency() + "-" + ticker.getQuoteCurrency() + "-SWAP")
+                    .put("instId", baseCurrency + "-" + quoteCurrency + "-SWAP")
                 )
             );
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(Ticker ticker, String reqId)
+    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
     {
         return new JSONObject()
             .put("id", reqId)
@@ -49,28 +49,26 @@ public class OkxFutures extends Okx
             .put("args", new JSONArray()
                 .put(new JSONObject()
                     .put("channel", "tickers")
-                    //.put("instType", instType)
-                    .put("instId", ticker.getBaseCurrency() + "-" + ticker.getQuoteCurrency() + "-SWAP")
+                    .put("instId", baseCurrency + "-" + quoteCurrency + "-SWAP")
                 )
             );
     }
 
     @Override
-    protected void handleData(JSONObject data)
+    protected Message parse(String message) {
+        return new OkxFuturesMessage(message);
+    }
+
+    protected class OkxFuturesMessage extends OkxMessage
     {
-        for (int i = 0; i < data.getJSONArray("data").length(); i++)
-        {
-            JSONObject d = data.getJSONArray("data").getJSONObject(i);
-            if (d.has("instId") && d.has("last") && d.has("instType") && d.get("instType").equals("SWAP")  && d.has("ts"))
-            {
-                subscribtions
-                    .stream()
-                    .forEach(t ->
-                    {
-                        if (d.getString("instId").equals(t.getBaseCurrency() + "-" + t.getQuoteCurrency() + "-SWAP")) 
-                            t.update(d.getString("last"), d.getLong("ts"));
-                    });
-            }
+        public OkxFuturesMessage(String message) {
+            super(message);
+        }
+
+        @Override
+        public boolean isUpdateChannelTickers() {
+            JSONObject d = this.getJSONArray("data").getJSONObject(0);
+            return d.has("instId") && d.has("last") && d.has("instType") && d.get("instType").equals("SWAP") && d.has("ts");
         }
     }
 }

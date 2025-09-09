@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.vasyaradulsoftware.arbitragelib.TradingPair;
+import org.vasyaradulsoftware.arbitragelib.TradingPair.NoTickersExeption;
 
 public class MrCriptan {
 
@@ -34,8 +35,11 @@ public class MrCriptan {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
-            System.out.println(p.getPriceInfo());
+            try {
+                System.out.println(p.getPriceInfo());
+            } catch (NoTickersExeption e) {
+                System.out.println("нема тiкерiв");
+            }
         }
         //*/
     }

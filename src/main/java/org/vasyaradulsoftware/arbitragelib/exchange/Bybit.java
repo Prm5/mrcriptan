@@ -4,7 +4,7 @@ import java.net.URISyntaxException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.vasyaradulsoftware.arbitragelib.Ticker;
+import org.vasyaradulsoftware.arbitragelib.Message;
 
 public class Bybit extends WebSocketExchange  {
 
@@ -13,76 +13,108 @@ public class Bybit extends WebSocketExchange  {
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(Ticker ticker, String reqId) {
+    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId) {
         return new JSONObject()
             .put("req_id", reqId)
             .put("op", "subscribe")
             .put("args", new JSONArray()
-                .put("tickers." + ticker.getBaseCurrency() + ticker.getQuoteCurrency())
+                .put("tickers." + baseCurrency + quoteCurrency)
             );
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(Ticker ticker, String reqId) {
+    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId) {
         return new JSONObject()
             .put("req_id", reqId)
             .put("op", "unsubscribe")
             .put("args", new JSONArray()
-                .put("tickers." + ticker.getBaseCurrency() + ticker.getQuoteCurrency())
+                .put("tickers." + baseCurrency + quoteCurrency)
             );
     }
 
-	@Override
-	protected void handleMessage(JSONObject message) {
-        
-        if (message.has("req_id") && hasRequest(message.getString("req_id")) && message.has("op"))
-        {
-            Ticker ticker = completeRequest(message.getString("req_id")).getTicker();
+    @Override
+    protected Message parse(String message) {
+        return new BybitMessage(message);
+    }
 
-            if (message.getString("op").equals("subscribe"))
-            {
-                if (message.has("success") && message.getBoolean("success"))
-                {
-                    ticker.setSubscribedStatus();
-                    subscribtions.add(ticker);
-                }
-                else
-                {
-                    ticker.subscribingUnsuccessful();
-                    System.out.println(message);
-                }
-            }
-            else if (message.getString("op").equals("unsubscribe"))
-            {
-                if (message.has("success") && message.getBoolean("success"))
-                {
-                    subscribtions.remove(ticker);
-                }
-                else
-                {
-                    System.out.println(message);
-                }
-            }
+    protected class BybitMessage extends JSONObject implements Message {
+
+        public BybitMessage(String message) {
+            super(message);
         }
-        else if (message.has("topic"))
-        {
-            String[] topic = message.getString("topic").split("[.]");
-            if (
+        
+        @Override
+        public boolean isResponce() {
+            return this.has("req_id") && this.has("op");
+        }
+
+        @Override
+        public String getResponceId() {
+            return this.getString("req_id");
+        }
+
+        @Override
+        public boolean isSubscribedSuccessfulResponce() {
+            return this.getString("op").equals("subscribe") && this.has("success") && this.getBoolean("success");
+        }
+
+        @Override
+        public boolean isUnsubscribedSuccessfulResponce() {
+            return this.getString("op").equals("unsubscribe") && this.has("success") && this.getBoolean("success");
+        }
+
+        @Override
+        public boolean isSubscribeErrorResponce() {
+            return this.getString("op").equals("subscribe") && this.has("success") && !this.getBoolean("success");
+        }
+
+        @Override
+        public boolean isUpdate() {
+            return this.has("topic");
+        }
+
+        @Override
+        public boolean isUpdateChannelTickers() {
+            String[] topic = this.getString("topic").split("[.]");
+            return
                 topic[0].equals("tickers") &&
-                message.has("data") &&
-                message.getJSONObject("data").has("lastPrice") &&
-                message.has("ts"))
-            {
-                subscribtions
-                    .stream()
-                    .forEach(t ->
-                    {
-                        if (topic[1].equals(t.getBaseCurrency() + t.getQuoteCurrency()))
-                        {
-                            t.update(message.getJSONObject("data").getString("lastPrice"), message.getLong("ts"));
-                        }
-                    });
-            }
+                this.has("data") &&
+                this.getJSONObject("data").has("lastPrice") &&
+                this.has("ts");
         }
-	}
+
+        @Override
+        public String getUpdateBaseCurrency() {
+            String ticker = this.getString("topic").split("[.]")[1];
+            String[] quotes = {"USDT", "USD"};
+            for (String quote : quotes) {
+                if (ticker.contains(quote)) {
+                    return ticker.replace(quote, "");
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public String getUpdateQuoteCurrency() {
+            String ticker = this.getString("topic").split("[.]")[1];
+            String[] quotes = {"USDT", "USD"};
+            for (String quote : quotes) {
+                if (ticker.contains(quote)) {
+                    return quote;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public String getUpdateLastPrice() {
+            return this.getJSONObject("data").getString("lastPrice");
+        }
+
+        @Override
+        public long getUpdateTimestamp() {
+            return this.getLong("ts");
+        }
+    }
 }
