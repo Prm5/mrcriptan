@@ -13,7 +13,7 @@ public class Bybit extends WebSocketExchange  {
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId) {
+    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId) {
         return new JSONObject()
             .put("req_id", reqId)
             .put("op", "subscribe")
@@ -23,7 +23,7 @@ public class Bybit extends WebSocketExchange  {
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId) {
+    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId) {
         return new JSONObject()
             .put("req_id", reqId)
             .put("op", "unsubscribe")
@@ -51,8 +51,8 @@ public class Bybit extends WebSocketExchange  {
         }
 
         @Override
-        public String getResponceId() {
-            return this.getString("req_id");
+        public int getResponceId() {
+            return this.getInt("req_id");
         }
 
         @Override

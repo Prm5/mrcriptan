@@ -1,13 +1,11 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Random;
 import java.util.function.Consumer;
 
 import org.json.JSONException;
@@ -28,10 +26,12 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     private String name;
 
     protected List<Ticker> subscribtions = new ArrayList<Ticker>();
-    private Map<String, Request> requests = new HashMap<String, Request>();
+    private Map<Integer, Request> requests = new HashMap<Integer, Request>();
 
-    protected String regRequest(Request request) {
-        String reqId = new BigInteger(64, new Random()).toString();
+    private int lastReqId = 0;
+
+    protected int regRequest(Request request) {
+        int reqId = lastReqId++;
         requests.put(reqId, request);
         System.out.println("request " + reqId + " registred");
         return reqId;
@@ -43,12 +43,12 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
      * Запрос на подписку для каждой биржи специфичен. По этому реалицация этого метода должна быть своя для каждой биржи.
      * Ознакомьтесь с документацией API интересующей вас биржи для того чтобы понять как вы должны реализовывать этот метод.
      */
-    protected abstract JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId);
+    protected abstract JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId);
 
     /*
      * Метод для создания запроса на отписку от обновлений цены. Всё тоже самое что и в предыдужем методе, только для отписки.
      */
-    protected abstract JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId);
+    protected abstract JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId);
 
     /*
      * Метод вызывается при при получении сообщения от ВебСокета и должен возвращять инстанс класса, реалезующего интерфейс Message.
@@ -58,9 +58,19 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
 
     private void handleMessage(Message message)
     {
-        if (message.isResponce() && hasRequest(message.getResponceId())) { handleResponse(message); }
-        else if (message.isUpdate()) { handleUpdate(message); }
-        else { System.out.println(message); }
+        if (message.isResponce()) System.out.println("responce received from " + url + ": " + message.toString());
+
+        if (message.isResponce() && hasRequest(message.getResponceId()))
+        {
+            handleResponse(message);
+        }
+        else if (message.isUpdate())
+        {
+            handleUpdate(message);
+        }
+        else {
+            System.out.println("message not recognised");
+        }
     }
 
     private void handleResponse(Message message)
@@ -96,11 +106,11 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
         }
     }
 
-    protected Request completeRequest(String reqId) {
+    protected Request completeRequest(int reqId) {
         return requests.remove(reqId);
     }
 
-    protected boolean hasRequest(String reqId) {
+    protected boolean hasRequest(int reqId) {
         return requests.containsKey(reqId);
     }
     
@@ -122,6 +132,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
                 e.printStackTrace();
             }
         }
+        System.out.println("sending message to " + url + ": " + message);
         websocket.send(message);
     }
 
@@ -144,7 +155,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
             Ticker ticker = new Ticker(baseCurrency, quoteCurrency, this);
 
             ticker.setSubscribingStatus();
-            String reqId = regRequest(new Request(ticker));
+            int reqId = regRequest(new Request(ticker));
             updateWebSocketAndSend(generateSubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), reqId).toString());
 
             return ticker;
@@ -155,7 +166,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     public void unsubscribeTicker(Ticker ticker) {
         if (subscribtions.contains(ticker)) {
 
-            String reqId = regRequest(new Request(ticker));
+            int reqId = regRequest(new Request(ticker));
             
             updateWebSocketAndSend(generateUnsubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), reqId).toString());
         }

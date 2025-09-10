@@ -3,7 +3,7 @@ package org.vasyaradulsoftware.arbitragelib;
 public interface Message {
 
     public boolean isResponce();
-    public String getResponceId();
+    public int getResponceId();
     public boolean isSubscribedSuccessfulResponce();
     public boolean isUnsubscribedSuccessfulResponce();
     public boolean isSubscribeErrorResponce();

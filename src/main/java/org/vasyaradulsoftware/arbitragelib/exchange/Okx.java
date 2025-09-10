@@ -15,7 +15,7 @@ public class Okx extends WebSocketExchange
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
+    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
         return new JSONObject()
             .put("id", reqId)
@@ -29,7 +29,7 @@ public class Okx extends WebSocketExchange
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
+    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
         return new JSONObject()
             .put("id", reqId)
@@ -59,8 +59,8 @@ public class Okx extends WebSocketExchange
         }
 
         @Override
-        public String getResponceId() {
-            return this.getString("id");
+        public int getResponceId() {
+            return this.getInt("id");
         }
 
         @Override

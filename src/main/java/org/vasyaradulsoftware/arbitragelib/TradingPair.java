@@ -11,6 +11,8 @@ import java.util.TimeZone;
 import org.vasyaradulsoftware.arbitragelib.exchange.BybitFutures;
 import org.vasyaradulsoftware.arbitragelib.exchange.BybitSpot;
 import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
+import org.vasyaradulsoftware.arbitragelib.exchange.GateFutures;
+import org.vasyaradulsoftware.arbitragelib.exchange.GateSpot;
 import org.vasyaradulsoftware.arbitragelib.exchange.OkxFutures;
 import org.vasyaradulsoftware.arbitragelib.exchange.OkxSpot;
 
@@ -39,6 +41,8 @@ public class TradingPair
         exchanges.add(BybitFutures.create());
         exchanges.add(OkxSpot.create());
         exchanges.add(OkxFutures.create());
+        exchanges.add(GateSpot.create());
+        exchanges.add(GateFutures.create());
     }
 
     public static TradingPair follow(String baseCurrency, String quoteCurrency) {

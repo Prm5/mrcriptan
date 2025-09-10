@@ -26,7 +26,7 @@ public class OkxFutures extends Okx
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
+    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
         return new JSONObject()
             .put("id", reqId)
@@ -41,7 +41,7 @@ public class OkxFutures extends Okx
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, String reqId)
+    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
         return new JSONObject()
             .put("id", reqId)
