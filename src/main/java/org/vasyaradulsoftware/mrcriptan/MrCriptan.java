@@ -1,9 +1,5 @@
 package org.vasyaradulsoftware.mrcriptan;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
-
 import org.vasyaradulsoftware.arbitragelib.TradingPair;
 import org.vasyaradulsoftware.arbitragelib.TradingPair.NoTickersExeption;
 
@@ -11,25 +7,17 @@ public class MrCriptan {
 
     public static void main(String[] args)
     {    
-        TradingPair.init(); //там создаются инстансы всех бирж и кладутся в List
+        TradingPair.init();
 
-        String rootPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
-        System.out.println(rootPath);
-        Properties properties = new Properties();
-        try {
-            properties.load(new FileInputStream(rootPath + "mrcriptan.properties"));
-        } catch (IOException e) {
-            System.out.println(e);
-            return;
-        }
-        String botToken = properties.getProperty("telegramBotToken"); //это всё получение токена который лежит в файлике
-        new Thread(new Bot(botToken)).start(); //запуск бота
+        String botToken = System.getenv("BOT_TOKEN");
+        System.out.println(botToken);
+        new Thread(new Bot(botToken)).start();
 
         //тест
         /**
         TradingPair p = TradingPair.follow("BTC", "USDT");
 
-        for (int i = 0; true; i++) {
+        for (int i = 0; i < 20; i++) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -42,5 +30,11 @@ public class MrCriptan {
             }
         }
         //*/
+
+        try {
+            Thread.currentThread().join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
