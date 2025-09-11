@@ -54,16 +54,20 @@ public class TradingPair
                 )
                 .iterator()
                 .next();
+            System.out.println("traiding pair " + baseCurrency + "_" + quoteCurrency + " follow");
             pair.followCounter++;
             return pair;
         } catch (NoSuchElementException e) {
+            System.out.println("traiding pair " + baseCurrency + "_" + quoteCurrency + " created");
             return new TradingPair(baseCurrency, quoteCurrency);
         }
     }
 
     public void unfollow() {
+        System.out.println("traiding pair " + baseCurrency + "_" + quoteCurrency + " unfollow");
         followCounter--;
         if (followCounter <= 0) {
+            System.out.println("traiding pair " + baseCurrency + "_" + quoteCurrency + " closed");
             traidingPairs.remove(this);
             tickers.forEach(t -> t.close());
         }

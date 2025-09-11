@@ -33,7 +33,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     protected int regRequest(Request request) {
         int reqId = lastReqId++;
         requests.put(reqId, request);
-        System.out.println("request " + reqId + " registred");
+        //System.out.println("request " + reqId + " registred");
         return reqId;
     }
 
@@ -58,7 +58,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
 
     private void handleMessage(Message message)
     {
-        if (message.isResponce()) System.out.println("responce received from " + url + ": " + message.toString());
+        //if (message.isResponce()) System.out.println("responce received from " + url + ": " + message.toString());
 
         if (message.isResponce() && hasRequest(message.getResponceId()))
         {
@@ -69,7 +69,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
             handleUpdate(message);
         }
         else {
-            System.out.println("message not recognised");
+            System.out.println("message from " + url + " not recognised: " + message.toString());
         }
     }
 
@@ -88,7 +88,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
         else if(message.isSubscribeErrorResponce())
         {
             ticker.subscribingUnsuccessful();
-            System.out.println(message);
+            System.out.println("subscribe error: " + message);
         }
     }
 
@@ -132,7 +132,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
                 e.printStackTrace();
             }
         }
-        System.out.println("sending message to " + url + ": " + message);
+        //System.out.println("sending message to " + url + ": " + message);
         websocket.send(message);
     }
 
