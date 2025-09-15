@@ -55,7 +55,7 @@ public class Chat {
                 {
                     follows.add(new Follow(command[1], "USDT", id, telegramClient));
                 }
-                if (command.length == 3)
+                else if (command.length == 3)
                 {
                     follows.add(new Follow(command[1], command[2], id, telegramClient));
                 }

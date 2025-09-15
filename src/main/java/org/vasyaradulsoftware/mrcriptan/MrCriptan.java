@@ -17,7 +17,7 @@ public class MrCriptan {
         /**
         TradingPair p = TradingPair.follow("BTC", "USDT");
 
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {

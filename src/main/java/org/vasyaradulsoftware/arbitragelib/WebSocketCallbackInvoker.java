@@ -33,7 +33,7 @@ public class WebSocketCallbackInvoker extends WebSocketClient {
 
     @Override
 	public void onOpen(ServerHandshake handshakedata) {
-        System.out.println(this.uri.getPath() + " connected successful. Handshake: " + handshakedata);
+        System.out.println(this.uri.toString() + " connected successful. Handshake: " + handshakedata);
 	}
 
     @Override

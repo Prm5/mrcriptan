@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.TimeZone;
 
+import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
 import org.vasyaradulsoftware.arbitragelib.exchange.BybitFutures;
 import org.vasyaradulsoftware.arbitragelib.exchange.BybitSpot;
 import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
@@ -139,11 +140,14 @@ public class TradingPair
         {
             throw new NoTickersExeption();
         }
-        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " price:";
+        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " Price:";
         for (Ticker t : tickers)
         {
             if (t.isSubscribed())
-            info = info + " [" + t.getExchange().getName() + " - " + t.getPrice().toString() + "]";
+            info = info + "\n" + t.getExchange().getName() + 
+            "\tLast: " + t.get(Param.LAST_PRICE).toString() +
+            "\tAsk: " + t.get(Param.ASK_PRICE).toString() +
+            "\tBid: " + t.get(Param.BID_PRICE).toString();
         }
         return info;
     }
@@ -156,14 +160,14 @@ public class TradingPair
             throw new NoTickersExeption();
         }
         sortBunchesBySpread();
-        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " - " + tickers.get(0).getPrice().toString() + "\nСпреды:";
+        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " - " + tickers.get(0).get(Param.LAST_PRICE).toString() + "\nСпреды:";
 
         int i = 1;
         for (Bunch b : bunches)
         {
             if (i >= 6) break;
             if (b.isSubscribed())
-            info = info + "\n" + Integer.toString(i) + ". " + b.getInfo();
+                info = info + "\n" + Integer.toString(i) + ". " + b.getInfo();
             i++;
         }
 
@@ -182,7 +186,15 @@ public class TradingPair
         }
 
         public Decimal calculateSpread() {
-            return longEntry.getPrice().clone().divRD(shortEntry.getPrice()).add(-1);
+            return shortEntry.get(Param.LAST_PRICE).clone().divRD(longEntry.get(Param.LAST_PRICE)).add(-1);
+        }
+
+        public Decimal calculateEntrySpread() {
+            return shortEntry.get(Param.ASK_PRICE).clone().divRD(longEntry.get(Param.BID_PRICE)).add(-1);
+        }
+
+        public Decimal calculateExitSpread() {
+            return longEntry.get(Param.ASK_PRICE).clone().divRD(shortEntry.get(Param.BID_PRICE)).add(-1);
         }
 
         public Ticker getLongEntry() {
@@ -198,7 +210,9 @@ public class TradingPair
         }
 
         public String getInfo() {
-            return "[" + getExchanges() + "]: " + calculateSpread().mul(100).roundDown(3) + "%";
+            return "[" + getExchanges() + "]: E:" +
+            calculateEntrySpread().mul(100).roundDown(2) + "%, X:" +
+            calculateExitSpread().mul(100).roundDown(2) + "%";
         }
 
         public boolean isSuccsessful() {

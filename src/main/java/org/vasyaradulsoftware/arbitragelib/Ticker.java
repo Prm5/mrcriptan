@@ -1,7 +1,8 @@
 package org.vasyaradulsoftware.arbitragelib;
 
 import java.io.Closeable;
-import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
 
@@ -18,8 +19,28 @@ public class Ticker implements Closeable
     private String baseCurrency;
     private String quoteCurrency;
 
-    private Decimal price;
-    private long timestamp;
+    private class TickerParam extends Decimal
+    {
+        private long actualityTimastamp = 0;
+    }
+
+    public enum Param
+    {
+        LAST_PRICE, ASK_PRICE, BID_PRICE;
+
+        private static int valuesNumber = 0;
+        public final int index;
+
+        Param() {
+            index = valuesNumberIncrement();
+        }
+
+        private int valuesNumberIncrement() {
+            return valuesNumber++;
+        }
+    }
+
+    private List<TickerParam> params = new ArrayList<TickerParam>();
 
     public Ticker(String baseCurrency, String quoteCurrency, Exchange exchange)
     {
@@ -30,7 +51,9 @@ public class Ticker implements Closeable
         subscribed = false;
         subscribing = false;
 
-        price = new Decimal();
+        for (int i = 0; i < Param.values().length; i++) {
+            params.add(new TickerParam());
+        }
     }
 
     @Override
@@ -64,21 +87,34 @@ public class Ticker implements Closeable
 
     public String getQuoteCurrency() { return quoteCurrency; }
 
-    public void update(String price, long ts)
+    public void update(Param param, long ts, Decimal value)
     {
-        if (ts >= timestamp) {
-            try {
-                this.price.parse(price);
-                timestamp = ts;
-            } catch (ParseException e) {
-                System.err.println(e);
-            }
+        if (ts >= params.get(param.index).actualityTimastamp) {
+            params.get(param.index).set(value);
+            params.get(param.index).actualityTimastamp = ts;
         }
     }
 
-    public Decimal getPrice() { return price; }
+    public void update(Param param, long ts)
+    {
+        if (ts >= params.get(param.index).actualityTimastamp) {
+            params.get(param.index).actualityTimastamp = ts;
+        }
+    }
 
-    public long getTimestamp() { return timestamp; }
+    public Decimal get(Param param)
+        {
+            return params.get(param.index);
+        }
+
+    public long getTimestamp()
+        {
+            return params
+                .stream()
+                .min((TickerParam p1, TickerParam p2) -> Long.compare(p1.actualityTimastamp, p2.actualityTimastamp))
+                .get()
+                .actualityTimastamp;
+        }
 
     public Exchange getExchange() { return exchange; }
 }

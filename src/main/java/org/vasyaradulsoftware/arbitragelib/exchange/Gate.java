@@ -1,14 +1,18 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
 import java.net.URISyntaxException;
+import java.text.ParseException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
+
+import decimal.Decimal;
 
 public class Gate extends WebSocketExchange
 {
-    private String type;
+    protected String type;
 
     protected Gate(String url, String name, String type) throws URISyntaxException
     {
@@ -17,25 +21,33 @@ public class Gate extends WebSocketExchange
     }
 
     @Override
-    protected JSONObject generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
+    protected JSONObject[] generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
-        return new JSONObject()
-            .put("time", System.currentTimeMillis()/1000)
-            .put("id", reqId)
-            .put("channel", type + ".tickers")
-            .put("event", "subscribe")
-            .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency));
+        JSONObject[] req =
+        {
+            new JSONObject()
+                .put("time", System.currentTimeMillis()/1000)
+                .put("id", reqId)
+                .put("channel", type + ".tickers")
+                .put("event", "subscribe")
+                .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency))
+        };
+        return req;
     }
 
     @Override
-    protected JSONObject generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
+    protected JSONObject[] generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
     {
-        return new JSONObject()
-            .put("time", System.currentTimeMillis()/1000)
-            .put("id", reqId)
-            .put("channel", type + ".tickers")
-            .put("event", "unsubscribe")
-            .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency));
+        JSONObject[] req =
+        {
+            new JSONObject()
+                .put("time", System.currentTimeMillis()/1000)
+                .put("id", reqId)
+                .put("channel", type + ".tickers")
+                .put("event", "unsubscribe")
+                .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency))
+        };
+        return req;
     }
 
     @Override
@@ -43,81 +55,142 @@ public class Gate extends WebSocketExchange
         return new GateMessage(message);
     }
 
-    protected class GateMessage extends JSONObject implements Message {
+    protected class GateMessage implements Message
+    {
+        protected JSONObject o;
 
         public GateMessage(String message) {
-            super(message);
+            o = new JSONObject(message);
         }
         
         @Override
         public boolean isResponce() {
             return
-                this.has("event") && 
+                o.has("event") && 
                 (
-                    this.getString("event").equals("subscribe") ||
-                    this.getString("event").equals("unsubscribe")
+                    o.getString("event").equals("subscribe") ||
+                    o.getString("event").equals("unsubscribe")
                 );
         }
 
         @Override
-        public int getResponceId() {
-            return this.getInt("id");
-        }
-
-        @Override
-        public boolean isSubscribedSuccessfulResponce() {
-            return 
-                this.getString("event").equals("subscribe") &&
-                this.getJSONObject("result").getString("status").equals("success");
-        }
-
-        @Override
-        public boolean isUnsubscribedSuccessfulResponce() {
-            return
-                this.getString("event").equals("unsubscribe") &&
-                this.getJSONObject("result").getString("status").equals("success");
-        }
-
-        @Override
-        public boolean isSubscribeErrorResponce() {
-            return 
-                this.getString("event").equals("subscribe") &&
-                this.getJSONObject("result").getString("status").equals("fail");
+        public Responce getResponce() {
+            return new GateResponce();
         }
 
         @Override
         public boolean isUpdate() {
             return
-                this.has("event") && 
-                this.getString("event").equals("update");
+                o.has("event") && 
+                o.getString("event").equals("update");
         }
 
         @Override
-        public boolean isUpdateChannelTickers() {
-            return
-                this.has("event") && 
-                this.getString("event").equals("update") &&
-                this.getString("channel").contains(".tickers");
+        public Update getUpdate() {
+            return new GateUpdate();
         }
 
         @Override
-        public String getUpdateBaseCurrency() {
-            return this.getJSONObject("result").getString("currency_pair").split("[_]")[0];
+        public String toString() {
+            return o.toString();
         }
 
-        @Override
-        public String getUpdateQuoteCurrency() {
-            return this.getJSONObject("result").getString("currency_pair").split("[_]")[1];
+        protected class GateResponce implements Responce
+        {
+            @Override
+            public int getResponceId() {
+                return o.getInt("id");
+            }
+
+            @Override
+            public boolean isSubscribedSuccessful() {
+                return 
+                    o.getString("event").equals("subscribe") &&
+                    o.getJSONObject("result").getString("status").equals("success");
+            }
+
+            @Override
+            public boolean isUnsubscribedSuccessful() {
+                return
+                    o.getString("event").equals("unsubscribe") &&
+                    o.getJSONObject("result").getString("status").equals("success");
+            }
+
+            @Override
+            public boolean isSubscribeError() {
+                return 
+                    o.getString("event").equals("subscribe") &&
+                    o.getJSONObject("result").getString("status").equals("fail");
+            }
+
+            @Override
+            public String toString() {
+                return o.toString();
+            }
         }
 
-        @Override
-        public String getUpdateLastPrice() {
-            return this.getJSONObject("result").getString("last");
-        }
+        protected class GateUpdate implements Update
+        {
+            @Override
+            public boolean isTickerUpdate() {
+                return
+                    o.has("event") && 
+                    o.getString("event").equals("update") &&
+                    o.getString("channel").contains(".tickers");
+            }
 
-        @Override
-        public long getUpdateTimestamp() {
-            return this.getLong("time_ms");
+            @Override
+            public boolean isOrderbookUpdate() {
+                return
+                    o.has("event") && 
+                    o.getString("event").equals("update") &&
+                    o.getString("channel").contains(".book_ticker");
+            }
+
+            @Override
+            public String getBaseCurrency() {
+                return o.getJSONObject("result").getString("currency_pair").split("[_]")[0];
+            }
+
+            @Override
+            public String getQuoteCurrency() {
+                return o.getJSONObject("result").getString("currency_pair").split("[_]")[1];
+            }
+
+            @Override
+            public Decimal get(Param param) throws InvalidFieldExeption, NotChangedExeption {
+                if (isTickerUpdate()) {
+                    try {
+                        switch (param)
+                        {
+                            case Param.LAST_PRICE:
+                                return new Decimal().parse(o.getJSONObject("result").getString("last"));
+                            
+                            case Param.ASK_PRICE:
+                                return new Decimal().parse(o.getJSONObject("result").getString("lowest_ask"));
+                            
+                            case Param.BID_PRICE:
+                                return new Decimal().parse(o.getJSONObject("result").getString("highest_bid"));
+                        
+                            default:
+                                break;
+                        }
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                }
+                throw new InvalidFieldExeption();
+            }
+
+            @Override
+            public long getTimestamp() {
+                return o.getLong("time_ms");
+            }
+
+            @Override
+            public String toString() {
+                return o.toString();
+            }
         }
     }
 }

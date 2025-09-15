@@ -30,6 +30,7 @@ public class Follow implements Runnable, Closeable {
         new Thread(this).start();
     }
 
+    @Override
     public void run() {
 
         SendMessage send = SendMessage
@@ -47,6 +48,8 @@ public class Follow implements Runnable, Closeable {
 
         tradingPair = TradingPair.follow(baseCurrency, quoteCurrency);
 
+        boolean edited = false;
+
         while (running) {
 
             try {
@@ -61,7 +64,8 @@ public class Follow implements Runnable, Closeable {
                 text = tradingPair.getSpreadInfo();
             } catch (NoTickersExeption e) {
                 text = "Ошибка: тикер не найден";
-                close();
+                if (running) close();
+                if (edited) break;
             }
 
             EditMessageText edit = EditMessageText
@@ -73,12 +77,14 @@ public class Follow implements Runnable, Closeable {
 
             try {
                 telegramClient.execute(edit);
+                edited = true;
             } catch (TelegramApiException e) {
                 //e.printStackTrace();
             }
         }
     }
 
+    @Override
     public void close() {
         running = false;
 
