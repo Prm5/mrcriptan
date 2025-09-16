@@ -6,6 +6,7 @@ import java.text.ParseException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.WebSocketExchange;
 import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
 
 import decimal.Decimal;

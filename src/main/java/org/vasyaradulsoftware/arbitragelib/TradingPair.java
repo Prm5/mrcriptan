@@ -228,4 +228,23 @@ public class TradingPair
     {
         bunches.sort((Bunch s1, Bunch s2) -> s2.calculateSpread().compareTo(s1.calculateSpread()));
     }
+
+    public static void main(String[] args) {
+        TradingPair.init();
+
+        TradingPair p = TradingPair.follow("BTC", "USDT");
+
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            try {
+                System.out.println(p.getPriceInfo());
+            } catch (NoTickersExeption e) {
+                System.out.println("нема тiкерiв");
+            }
+        }
+    }
 }

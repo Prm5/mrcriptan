@@ -87,6 +87,15 @@ public class Ticker implements Closeable
 
     public String getQuoteCurrency() { return quoteCurrency; }
 
+    public long getTimestamp()
+    {
+        return params
+            .stream()
+            .min((TickerParam p1, TickerParam p2) -> Long.compare(p1.actualityTimastamp, p2.actualityTimastamp))
+            .get()
+            .actualityTimastamp;
+    }
+
     public void update(Param param, long ts, Decimal value)
     {
         if (ts >= params.get(param.index).actualityTimastamp) {
@@ -103,18 +112,9 @@ public class Ticker implements Closeable
     }
 
     public Decimal get(Param param)
-        {
-            return params.get(param.index);
-        }
-
-    public long getTimestamp()
-        {
-            return params
-                .stream()
-                .min((TickerParam p1, TickerParam p2) -> Long.compare(p1.actualityTimastamp, p2.actualityTimastamp))
-                .get()
-                .actualityTimastamp;
-        }
+    {
+        return params.get(param.index);
+    }
 
     public Exchange getExchange() { return exchange; }
 }

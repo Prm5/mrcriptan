@@ -1,4 +1,4 @@
-package org.vasyaradulsoftware.arbitragelib.exchange;
+package org.vasyaradulsoftware.arbitragelib;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -10,14 +10,12 @@ import java.util.function.Consumer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.vasyaradulsoftware.arbitragelib.Ticker;
-import org.vasyaradulsoftware.arbitragelib.WebSocketCallbackInvoker;
 import org.vasyaradulsoftware.arbitragelib.Message.InvalidFieldExeption;
 import org.vasyaradulsoftware.arbitragelib.Message.NotChangedExeption;
 import org.vasyaradulsoftware.arbitragelib.Message.Responce;
 import org.vasyaradulsoftware.arbitragelib.Message.Update;
 import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
-import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
 /*
  * Этот класс позволяет использовать биржи с поддержкой WebSocket.
  * Реализуйте предложенные абстрактные методы для отправки WebSocket запросов и обработки ответов для API нужной вам биржи. 
