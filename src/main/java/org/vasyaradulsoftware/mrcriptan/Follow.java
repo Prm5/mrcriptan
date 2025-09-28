@@ -8,7 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.vasyaradulsoftware.arbitragelib.TradingPair;
-import org.vasyaradulsoftware.arbitragelib.TradingPair.NoTickersExeption;
+import org.vasyaradulsoftware.arbitragelib.TradingPair.NoSubscribtionsExeption;
 
 public class Follow implements Runnable, Closeable {
 
@@ -62,7 +62,7 @@ public class Follow implements Runnable, Closeable {
             String text;
             try {
                 text = tradingPair.getSpreadInfo();
-            } catch (NoTickersExeption e) {
+            } catch (NoSubscribtionsExeption e) {
                 text = "Ошибка: тикер не найден";
                 if (running) close();
                 if (edited) break;

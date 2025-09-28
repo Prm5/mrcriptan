@@ -6,53 +6,83 @@ import java.text.ParseException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.Orderbook;
+import org.vasyaradulsoftware.arbitragelib.Ticker;
 import org.vasyaradulsoftware.arbitragelib.WebSocketExchange;
-import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
+import org.vasyaradulsoftware.arbitragelib.Subscribtion.Channel;
 
 import decimal.Decimal;
 
-public class Okx extends WebSocketExchange
+public abstract class Okx extends WebSocketExchange
 {
-
-    protected Okx(String name) throws URISyntaxException
+    protected Okx(String name, ExType type) throws URISyntaxException
     {
-        super("wss://ws.okx.com:8443/ws/v5/public", name);
+        super("wss://ws.okx.com:8443/ws/v5/public", name, type);
     }
 
     @Override
-    protected JSONObject[] generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
-    {
-        JSONObject[] req =
-        {
-            new JSONObject()
-                .put("id", reqId)
-                .put("op", "subscribe")
-                .put("args", new JSONArray()
-                    .put(new JSONObject()
-                        .put("channel", "tickers")
-                        .put("instId", baseCurrency + "-" + quoteCurrency)
-                    )
-                )
-        };
-        return req;
+    protected Ticker createTicker(String baseCurrency, String quoteCurrency) {
+        return new OkxTicker(baseCurrency, quoteCurrency);
     }
 
-    @Override
-    protected JSONObject[] generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
+    protected class OkxTicker extends Ticker
     {
-        JSONObject[] req =
-        {
-            new JSONObject()
-                .put("id", reqId)
-                .put("op", "unsubscribe")
+        protected OkxTicker(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Okx.this);
+        }
+
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+            String inst = baseCurrency + "-" + quoteCurrency;
+            if (type == ExType.FUTURES) inst = inst + "-SWAP";
+
+            return new JSONObject()
+                .put("id", id)
+                .put("op", operation)
                 .put("args", new JSONArray()
                     .put(new JSONObject()
                         .put("channel", "tickers")
-                        .put("instId", baseCurrency + "-" + quoteCurrency)
+                        .put("instId", inst)
                     )
-                )
-        };
-        return req;
+                );
+        }
+
+        @Override
+        public void update(JSONObject msg) {
+            JSONObject d = msg.getJSONArray("data").getJSONObject(0);
+            try {
+                update(Param.LAST_PRICE, d.getLong("ts"), new Decimal().parse(d.getString("last")));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    protected abstract class OkxOrderbook extends Orderbook
+    {
+        protected OkxOrderbook(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Okx.this);
+        }
+        
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+            String inst = baseCurrency + "-" + quoteCurrency;
+            if (type == ExType.FUTURES) inst = inst + "-SWAP";
+
+            return new JSONObject()
+                .put("id", id)
+                .put("op", operation)
+                .put("args", new JSONArray()
+                    .put(new JSONObject()
+                        .put("channel", "books5")
+                        .put("instId", inst)
+                    )
+                );
+        }
     }
 
     @Override
@@ -60,12 +90,10 @@ public class Okx extends WebSocketExchange
         return new OkxMessage(message);
     }
 
-    protected class OkxMessage implements Message
+    protected class OkxMessage extends Message
     {
-        private JSONObject o;
-
         public OkxMessage(String message) {
-            o = new JSONObject(message);
+            super(message);
         }
         
         @Override
@@ -88,12 +116,7 @@ public class Okx extends WebSocketExchange
             return new OkxUpdate();
         }
 
-        @Override
-        public String toString() {
-            return o.toString();
-        }
-
-        protected class OkxResponce implements Responce
+        protected class OkxResponce extends Responce
         {
             @Override
             public int getResponceId() {
@@ -115,71 +138,27 @@ public class Okx extends WebSocketExchange
                 return o.getString("event").equals("error");
             }
 
-            @Override
-            public String toString() {
-                return o.toString();
-            }
         }
 
-        protected class OkxUpdate implements Update
+        protected class OkxUpdate extends Update
         {
-            @Override
-            public boolean isTickerUpdate() {
-                return o.getJSONObject("arg").getString("channel").equals("tickers");
-            }
+            JSONObject d = o.getJSONArray("data").getJSONObject(0);
 
             @Override
-            public boolean isOrderbookUpdate() {
-                return o.getJSONObject("arg").getString("channel").equals("books");
+            public Channel getChannel() {
+                if (o.getJSONObject("arg").getString("channel").equals("tickers")) return Channel.TICKER;
+                if (o.getJSONObject("arg").getString("channel").equals("books5")) return Channel.ORDERBOOK;
+                return null;
             }
 
             @Override
             public String getBaseCurrency() {
-                JSONObject d = o.getJSONArray("data").getJSONObject(0);
                 return d.getString("instId").split("[-]")[0];
             }
 
             @Override
             public String getQuoteCurrency() {
-                JSONObject d = o.getJSONArray("data").getJSONObject(0);
                 return d.getString("instId").split("[-]")[1];
-            }
-
-            @Override
-            public Decimal get(Param param) throws InvalidFieldExeption, NotChangedExeption {
-                JSONObject d = o.getJSONArray("data").getJSONObject(0);
-                if (isTickerUpdate()) {
-                    try {
-                        switch (param)
-                        {
-                            case Param.LAST_PRICE:
-                                return new Decimal().parse(d.getString("last"));
-                            
-                            case Param.ASK_PRICE:
-                                return new Decimal().parse(d.getString("askPx"));
-                            
-                            case Param.BID_PRICE:
-                                return new Decimal().parse(d.getString("askPx"));
-                        
-                            default:
-                                break;
-                        }
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                }
-                throw new InvalidFieldExeption();
-            }
-
-            @Override
-            public long getTimestamp() {
-                JSONObject d = o.getJSONArray("data").getJSONObject(0);
-                return d.getLong("ts");
-            }
-
-            @Override
-            public String toString() {
-                return o.toString();
             }
         }
     }

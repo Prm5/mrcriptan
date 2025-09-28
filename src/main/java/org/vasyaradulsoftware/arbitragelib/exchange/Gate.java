@@ -1,67 +1,79 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
 import java.net.URISyntaxException;
-import java.text.ParseException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.Orderbook;
+import org.vasyaradulsoftware.arbitragelib.Ticker;
 import org.vasyaradulsoftware.arbitragelib.WebSocketExchange;
-import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
+import org.vasyaradulsoftware.arbitragelib.Subscribtion.Channel;
 
-import decimal.Decimal;
-
-public class Gate extends WebSocketExchange
+public abstract class Gate extends WebSocketExchange
 {
-    protected String type;
 
-    protected Gate(String url, String name, String type) throws URISyntaxException
+    protected Gate(String url, String name, ExType type) throws URISyntaxException
     {
-        super(url, name);
-        this.type = type;
+        super(url, name, type);
     }
 
-    @Override
-    protected JSONObject[] generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
-    {
-        JSONObject[] req =
-        {
-            new JSONObject()
+    protected abstract class GateTicker extends Ticker
+    {    
+        protected GateTicker(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Gate.this);
+        }
+
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+            String t = "spot";
+            if (type == ExType.FUTURES) t = "futures";
+
+            return new JSONObject()
                 .put("time", System.currentTimeMillis()/1000)
-                .put("id", reqId)
-                .put("channel", type + ".tickers")
-                .put("event", "subscribe")
-                .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency))
-        };
-        return req;
+                .put("id", id)
+                .put("channel", t + ".tickers")
+                .put("event", operation)
+                .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency));
+        }
     }
 
-    @Override
-    protected JSONObject[] generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId)
+    protected abstract class GateOrderbook extends Orderbook
     {
-        JSONObject[] req =
-        {
-            new JSONObject()
+        protected GateOrderbook(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Gate.this);
+        }
+
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+            String t = "spot";
+            String interval = "100ms";
+            if (type == ExType.FUTURES) {
+                t = "futures";
+                interval = "0";
+            }
+
+            return new JSONObject()
                 .put("time", System.currentTimeMillis()/1000)
-                .put("id", reqId)
-                .put("channel", type + ".tickers")
-                .put("event", "unsubscribe")
-                .put("payload", new JSONArray().put(baseCurrency + "_" + quoteCurrency))
-        };
-        return req;
+                .put("id", id)
+                .put("channel", t + ".order_book")
+                .put("event", operation)
+                .put("payload", new JSONArray()
+                    .put(baseCurrency + "_" + quoteCurrency)
+                    .put(Integer.toString(level))
+                    .put(interval)
+                );
+        }
     }
 
-    @Override
-    protected Message parse(String message) {
-        return new GateMessage(message);
-    }
-
-    protected class GateMessage implements Message
+    protected abstract class GateMessage extends Message
     {
-        protected JSONObject o;
-
-        public GateMessage(String message) {
-            o = new JSONObject(message);
+        protected GateMessage(String message) {
+            super(message);
         }
         
         @Override
@@ -82,21 +94,14 @@ public class Gate extends WebSocketExchange
         @Override
         public boolean isUpdate() {
             return
-                o.has("event") && 
-                o.getString("event").equals("update");
+                o.has("event") &&
+                (
+                    o.getString("event").equals("update") ||
+                    o.getString("event").equals("all")
+                );
         }
 
-        @Override
-        public Update getUpdate() {
-            return new GateUpdate();
-        }
-
-        @Override
-        public String toString() {
-            return o.toString();
-        }
-
-        protected class GateResponce implements Responce
+        protected class GateResponce extends Responce
         {
             @Override
             public int getResponceId() {
@@ -123,74 +128,21 @@ public class Gate extends WebSocketExchange
                     o.getString("event").equals("subscribe") &&
                     o.getJSONObject("result").getString("status").equals("fail");
             }
-
-            @Override
-            public String toString() {
-                return o.toString();
-            }
         }
 
-        protected class GateUpdate implements Update
+        protected abstract class GateUpdate extends Update
         {
             @Override
-            public boolean isTickerUpdate() {
-                return
-                    o.has("event") && 
-                    o.getString("event").equals("update") &&
-                    o.getString("channel").contains(".tickers");
-            }
-
-            @Override
-            public boolean isOrderbookUpdate() {
-                return
-                    o.has("event") && 
-                    o.getString("event").equals("update") &&
-                    o.getString("channel").contains(".book_ticker");
-            }
-
-            @Override
-            public String getBaseCurrency() {
-                return o.getJSONObject("result").getString("currency_pair").split("[_]")[0];
-            }
-
-            @Override
-            public String getQuoteCurrency() {
-                return o.getJSONObject("result").getString("currency_pair").split("[_]")[1];
-            }
-
-            @Override
-            public Decimal get(Param param) throws InvalidFieldExeption, NotChangedExeption {
-                if (isTickerUpdate()) {
-                    try {
-                        switch (param)
-                        {
-                            case Param.LAST_PRICE:
-                                return new Decimal().parse(o.getJSONObject("result").getString("last"));
-                            
-                            case Param.ASK_PRICE:
-                                return new Decimal().parse(o.getJSONObject("result").getString("lowest_ask"));
-                            
-                            case Param.BID_PRICE:
-                                return new Decimal().parse(o.getJSONObject("result").getString("highest_bid"));
-                        
-                            default:
-                                break;
-                        }
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                }
-                throw new InvalidFieldExeption();
-            }
-
-            @Override
-            public long getTimestamp() {
-                return o.getLong("time_ms");
-            }
-
-            @Override
-            public String toString() {
-                return o.toString();
+            public Channel getChannel() {
+                if (
+                    o.has("channel") && 
+                    o.getString("channel").contains(".tickers")
+                ) return Channel.TICKER;
+                if (
+                    o.has("channel") && 
+                    o.getString("channel").contains(".order_book")
+                ) return Channel.ORDERBOOK;
+                return null;
             }
         }
     }

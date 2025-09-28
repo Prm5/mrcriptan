@@ -2,61 +2,124 @@ package org.vasyaradulsoftware.arbitragelib.exchange;
 
 import java.net.URISyntaxException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
+import org.vasyaradulsoftware.arbitragelib.Orderbook;
+import org.vasyaradulsoftware.arbitragelib.Ticker;
 import org.vasyaradulsoftware.arbitragelib.WebSocketExchange;
-import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
+import org.vasyaradulsoftware.arbitragelib.Subscribtion.Channel;
 
 import decimal.Decimal;
 
-public class Bybit extends WebSocketExchange  {
+public abstract class Bybit extends WebSocketExchange  {
 
-    protected Bybit(String url, String name) throws URISyntaxException {
-        super(url, name);
+    protected Bybit(String url, String name, ExType type) throws URISyntaxException {
+        super(url, name, type);
     }
 
     @Override
-    protected JSONObject[] generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId) {
-        JSONObject[] req =
-        {
-            new JSONObject()
-                .put("req_id", reqId)
-                .put("op", "subscribe")
+    protected Ticker createTicker(String baseCurrency, String quoteCurrency) {
+        return new BybitTicker(baseCurrency, quoteCurrency);
+    }
+
+    protected class BybitTicker extends Ticker
+    {
+        public BybitTicker(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Bybit.this);
+        }
+        
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+
+            return new JSONObject()
+                .put("req_id", id)
+                .put("op", operation)
                 .put("args", new JSONArray()
                     .put("tickers." + baseCurrency + quoteCurrency)
-                ),
-            
-            new JSONObject()
-                .put("req_id", reqId)
-                .put("op", "subscribe")
-                .put("args", new JSONArray()
-                    .put("orderbook.50." + baseCurrency + quoteCurrency)
-                ),
-        };
-        return req;
+                );
+        }
+
+        @Override
+        public void update(JSONObject msg) {
+            try {
+                update(Param.LAST_PRICE, msg.getLong("ts"), new Decimal().parse(msg.getJSONObject("data").getString("lastPrice")));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
-    protected JSONObject[] generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId) {
-        JSONObject[] req =
-        {
-            new JSONObject()
-                .put("req_id", reqId)
-                .put("op", "unsubscribe")
-                .put("args", new JSONArray()
-                    .put("tickers." + baseCurrency + quoteCurrency)
-                ),
-            
-            new JSONObject()
-                .put("req_id", reqId)
-                .put("op", "unsubscribe")
+    protected Orderbook createOrderbook(String baseCurrency, String quoteCurrency) {
+        return new BybitOrderbook(baseCurrency, quoteCurrency);
+    }
+
+    protected class BybitOrderbook extends Orderbook
+    {
+        public BybitOrderbook(String baseCurrency, String quoteCurrency) {
+            super(baseCurrency, quoteCurrency, Bybit.this);
+        }
+
+        @Override
+        public JSONObject genWSRequest(Op op, int id) {
+            String operation = "unsubscribe";
+            if (op == Op.SUBSCRIBE) operation = "subscribe";
+
+            return new JSONObject()
+                .put("req_id", id)
+                .put("op", operation)
                 .put("args", new JSONArray()
                     .put("orderbook.50." + baseCurrency + quoteCurrency)
-                )
-        };
-        return req;
+                );
+        }
+
+        @Override
+        public void update(JSONObject msg) {
+            List<Row> ask = new ArrayList<Row>();
+            JSONArray askJSON = msg.getJSONObject("data").getJSONArray("a");
+
+            for (int i = 0; i < askJSON.length(); i++) {
+                try {
+                    Decimal price = new Decimal().parse(askJSON.getJSONArray(i).getString(0));
+                    Decimal sizeBase = new Decimal().parse(askJSON.getJSONArray(i).getString(1));
+                    Decimal sizeQuote = sizeBase.clone().mulRD(price);
+                    ask.add(new Row(price, sizeQuote, sizeBase));
+                }
+                catch (JSONException e) {
+                    break;
+                }
+                catch (ParseException e) {}
+            }
+
+            List<Row> bid = new ArrayList<Row>();
+            JSONArray bidJSON = msg.getJSONObject("data").getJSONArray("b");
+
+            for (int i = 0; i < bidJSON.length(); i++) {
+                try {
+                    Decimal price = new Decimal().parse(bidJSON.getJSONArray(i).getString(0));
+                    Decimal sizeBase = new Decimal().parse(bidJSON.getJSONArray(i).getString(1));
+                    Decimal sizeQuote = sizeBase.clone().mulRD(price);
+                    bid.add(new Row(price, sizeQuote, sizeBase));
+                }
+                catch (JSONException e) {
+                    break;
+                }
+                catch (ParseException e) {}
+            }
+
+            
+            if (msg.getString("type").equals("delta"))
+                update(UpdType.DELTA, msg.getLong("ts"), ask, bid);
+            else if (msg.getString("type").equals("snapshot"))
+                update(UpdType.SNAPSHOT, msg.getLong("ts"), ask, bid);
+        }
     }
 
     @Override
@@ -64,14 +127,12 @@ public class Bybit extends WebSocketExchange  {
         return new BybitMessage(message);
     }
 
-    protected class BybitMessage implements Message
+    protected class BybitMessage extends Message
     {
         private static final String[] quotes = {"USDT", "USDC", "USD1", "USD", "EUR", "BTC", "MNT", "SOL", "ETH"};
 
-        private JSONObject o;
-
         public BybitMessage(String message) {
-            o = new JSONObject(message);
+            super(message);
         }
         
         @Override
@@ -94,12 +155,7 @@ public class Bybit extends WebSocketExchange  {
             return new BybitUpdate();
         }
 
-        @Override
-        public String toString() {
-            return o.toString();
-        }
-
-        protected class BybitResponce implements Responce
+        protected class BybitResponce extends Responce
         {
             @Override
             public int getResponceId() {
@@ -120,30 +176,21 @@ public class Bybit extends WebSocketExchange  {
             public boolean isSubscribeError() {
                 return o.getString("op").equals("subscribe") && o.has("success") && !o.getBoolean("success");
             }
-
-            @Override
-            public String toString() {
-                return o.toString();
-            }
         }
 
-        protected class BybitUpdate implements Update
+        protected class BybitUpdate extends Update
         {
-            @Override
-            public boolean isTickerUpdate() {
-                String[] topic = o.getString("topic").split("[.]");
-                return topic[0].equals("tickers") && o.has("data");
-            }
+            String[] topic = o.getString("topic").split("[.]");
 
             @Override
-            public boolean isOrderbookUpdate() {
-                String[] topic = o.getString("topic").split("[.]");
-                return topic[0].equals("orderbook") && o.has("data");
+            public Channel getChannel() {
+                if (topic[0].equals("tickers")) return Channel.TICKER;
+                else if (topic[0].equals("orderbook")) return Channel.ORDERBOOK;
+                else return null;
             }
 
             @Override
             public String getBaseCurrency() {
-                String[] topic = o.getString("topic").split("[.]");
                 String ticker = topic[topic.length - 1];
                 for (String quote : quotes) {
                     if (ticker.substring(ticker.length() - quote.length(), ticker.length()).equals(quote)) {
@@ -155,7 +202,6 @@ public class Bybit extends WebSocketExchange  {
 
             @Override
             public String getQuoteCurrency() {
-                String[] topic = o.getString("topic").split("[.]");
                 String ticker = topic[topic.length - 1];
                 for (String quote : quotes) {
                     if (ticker.substring(ticker.length() - quote.length(), ticker.length()).equals(quote)) {
@@ -163,83 +209,6 @@ public class Bybit extends WebSocketExchange  {
                     }
                 }
                 return null;
-            }
-
-            protected boolean isDelta() {
-                return o.getString("type").equals("delta");
-            }
-
-            protected boolean isSnapshot() {
-                return o.getString("type").equals("snapshot");
-            }
-
-            @Override
-            public Decimal get(Param param) throws InvalidFieldExeption, NotChangedExeption {
-                try {
-                    if (isTickerUpdate()) {
-                        switch (param)
-                        {
-                            case Param.LAST_PRICE:
-                                if (o.getJSONObject("data").has("lastPrice")) {
-                                    return new Decimal().parse(o.getJSONObject("data").getString("lastPrice"));
-                                } else {
-                                    throw new NotChangedExeption();
-                                }
-                        
-                            default:
-                                break;
-                        }
-                    } else if (isOrderbookUpdate()) {
-                        switch (param)
-                        {   
-                            case Param.ASK_PRICE:
-                                JSONArray a = o.getJSONObject("data").getJSONArray("a");
-                                if (isSnapshot()) {
-                                    return new Decimal().parse(a.getJSONArray(a.length() - 1).getString(0));
-                                } else if (isDelta()) {
-                                    int i = 0;
-                                    while (i++ < a.length()) if (!a.getJSONArray(a.length() - i).getString(1).equals("0")) break;
-                                    if (i == 1) {
-                                        throw new NotChangedExeption();
-                                    } else {
-                                        return new Decimal().parse(a.getJSONArray(a.length() - i).getString(0));
-                                    }
-                                }
-                                break;
-                            
-                            case Param.BID_PRICE:
-                                JSONArray b = o.getJSONObject("data").getJSONArray("b");
-                                if (isSnapshot()) {
-                                    return new Decimal().parse(b.getJSONArray(b.length() - 1).getString(0));
-                                } else if (isDelta()) {
-                                    int i = 0;
-                                    while (i++ < b.length()) if (!b.getJSONArray(b.length() - i).getString(1).equals("0")) break;
-                                    if (i == 1) {
-                                        throw new NotChangedExeption();
-                                    } else {
-                                        return new Decimal().parse(b.getJSONArray(b.length() - i).getString(0));
-                                    }
-                                }
-                                break;
-                        
-                            default:
-                                break;
-                        }
-                    }
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-                throw new InvalidFieldExeption();
-            }
-
-            @Override
-            public long getTimestamp() {
-                return o.getLong("ts");
-            }
-
-            @Override
-            public String toString() {
-                return o.toString();
             }
         }
     }

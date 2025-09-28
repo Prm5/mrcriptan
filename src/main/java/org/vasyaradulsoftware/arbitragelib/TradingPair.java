@@ -1,5 +1,6 @@
 package org.vasyaradulsoftware.arbitragelib;
 
+import java.io.Closeable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -9,13 +10,9 @@ import java.util.NoSuchElementException;
 import java.util.TimeZone;
 
 import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
-import org.vasyaradulsoftware.arbitragelib.exchange.BybitFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.BybitSpot;
-import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
 import org.vasyaradulsoftware.arbitragelib.exchange.GateFutures;
 import org.vasyaradulsoftware.arbitragelib.exchange.GateSpot;
-import org.vasyaradulsoftware.arbitragelib.exchange.OkxFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.OkxSpot;
+
 
 import decimal.Decimal;
 
@@ -26,7 +23,7 @@ public class TradingPair
     private static List<TradingPair> traidingPairs = new ArrayList<TradingPair>();
     private int followCounter = 1;
 
-    private List<Ticker> tickers = new ArrayList<Ticker>();
+    private List<SinglePair> subscribtions = new ArrayList<SinglePair>();
     private List<Bunch> bunches = new ArrayList<Bunch>();
 
     private String baseCurrency;
@@ -38,10 +35,10 @@ public class TradingPair
 
     public static void init()
     {
-        exchanges.add(BybitSpot.create());
-        exchanges.add(BybitFutures.create());
-        exchanges.add(OkxSpot.create());
-        exchanges.add(OkxFutures.create());
+        //exchanges.add(BybitSpot.create());
+        //exchanges.add(BybitFutures.create());
+        //exchanges.add(OkxSpot.create());
+        //exchanges.add(OkxFutures.create());
         exchanges.add(GateSpot.create());
         exchanges.add(GateFutures.create());
     }
@@ -70,7 +67,7 @@ public class TradingPair
         if (followCounter <= 0) {
             System.out.println("traiding pair " + baseCurrency + "_" + quoteCurrency + " closed");
             traidingPairs.remove(this);
-            tickers.forEach(t -> t.close());
+            subscribtions.forEach(s -> s.close());
         }
     }
 
@@ -79,13 +76,13 @@ public class TradingPair
         this.quoteCurrency = quoteCurrency;
 
         for (Exchange e : exchanges) {
-            tickers.add(e.subscribeTicker(baseCurrency, quoteCurrency));
+            subscribtions.add(new SinglePair(e));
         }
 
-        for (Ticker t1 : tickers) {
-            for (Ticker t2 : tickers) {
-                if (t1 != t2) {
-                    bunches.add(new Bunch(t1, t2));
+        for (SinglePair s1 : subscribtions) {
+            for (SinglePair s2 : subscribtions) {
+                if (s1 != s2) {
+                    bunches.add(new Bunch(s1, s2));
                 }
             }
         }
@@ -96,77 +93,71 @@ public class TradingPair
         traidingPairs.add(this);
     }
 
-    public void updateTimestamp() {
+    private void updateTimestamp() {
         try {
-            timestamp = tickers
+            timestamp = subscribtions
                 .stream()
-                .min((Ticker t1, Ticker t2) -> Long.compare(t2.getTimestamp(), t1.getTimestamp()))
+                .min((SinglePair s1, SinglePair s2) -> Long.compare(s2.getTimestamp(), s1.getTimestamp()))
                 .get()
                 .getTimestamp();
         } catch (NoSuchElementException e) {}
     }
 
-    public void checkTickersStatus()
+    private void checkSubscribtionsStatus()
     {
         {
-            Iterator<Ticker> i = tickers.iterator();
+            Iterator<SinglePair> i = subscribtions.iterator();
             while (i.hasNext())
             {
-                if (!i.next().isSuccsessful())
-                {
-                    i.remove();
-                }
+                if (i.next().isClosed()) i.remove();
             }
         }
         {
             Iterator<Bunch> i = bunches.iterator();
             while (i.hasNext())
             {
-                if (!i.next().isSuccsessful())
-                {
-                    i.remove();
-                }
+                if (i.next().isClosed()) i.remove();
             }
         }
     }
 
-    public class NoTickersExeption extends Exception {}
+    public class NoSubscribtionsExeption extends Exception {}
 
-    public String getPriceInfo() throws NoTickersExeption
+    public String getPriceInfo() throws NoSubscribtionsExeption
     {
-        checkTickersStatus();
+        checkSubscribtionsStatus();
         updateTimestamp();
-        if (tickers.isEmpty())
+        if (subscribtions.isEmpty())
         {
-            throw new NoTickersExeption();
+            throw new NoSubscribtionsExeption();
         }
         String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " Price:";
-        for (Ticker t : tickers)
+        for (SinglePair s : subscribtions)
         {
-            if (t.isSubscribed())
-            info = info + "\n" + t.getExchange().getName() + 
-            "\tLast: " + t.get(Param.LAST_PRICE).toString() +
-            "\tAsk: " + t.get(Param.ASK_PRICE).toString() +
-            "\tBid: " + t.get(Param.BID_PRICE).toString();
+            if (!s.isClosed())
+            info = info + "\n" + s.exchange.getName() + 
+            "\tLast: " + s.ticker.get(Param.LAST_PRICE).toString() +
+            "\tAsk: " + s.orderbook.getBestAskPrice() +
+            "\tBid: " + s.orderbook.getBestBidPrice();
         }
         return info;
     }
 
-    public String getSpreadInfo() throws NoTickersExeption
+    public String getSpreadInfo() throws NoSubscribtionsExeption
     {
-        checkTickersStatus();
+        checkSubscribtionsStatus();
         updateTimestamp();
         if (bunches.isEmpty()) {
-            throw new NoTickersExeption();
+            throw new NoSubscribtionsExeption();
         }
         sortBunchesBySpread();
-        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " - " + tickers.get(0).get(Param.LAST_PRICE).toString() + "\nСпреды:";
+        String info = "(" + dateFormat.format(timestamp) + " UTC) " + baseCurrency + "/" + quoteCurrency + " - " + subscribtions.get(0).ticker.get(Param.LAST_PRICE).toString() + "\nСпреды:";
 
         int i = 1;
         for (Bunch b : bunches)
         {
             if (i >= 6) break;
-            if (b.isSubscribed())
+            if (!b.isClosed())
                 info = info + "\n" + Integer.toString(i) + ". " + b.getInfo();
             i++;
         }
@@ -174,53 +165,72 @@ public class TradingPair
         return info;
     }
 
-    class Bunch
+    protected class SinglePair implements Closeable
     {
-        private Ticker longEntry;
-        private Ticker shortEntry;
+        public final Exchange exchange;
+        public final Ticker ticker;
+        public final Orderbook orderbook;
 
-        public Bunch(Ticker longEntry, Ticker shortEntry)
+        public SinglePair(Exchange e) {
+            exchange = e;
+            ticker = e.getTicker(baseCurrency, quoteCurrency);
+            orderbook = e.getOrderbook(baseCurrency, quoteCurrency);
+        }
+
+        @Override
+        public void close() {
+            ticker.unfollow();
+            orderbook.unfollow();
+        }
+
+        public boolean isClosed() { return ticker.isClosed() || orderbook.isClosed(); }
+
+        public long getTimestamp() { return Long.min(ticker.getTimestamp(), orderbook.getTimestamp()); }
+    }
+
+    protected class Bunch
+    {
+        private SinglePair longEntry;
+        private SinglePair shortEntry;
+
+        public Bunch(SinglePair longEntry, SinglePair shortEntry)
         {
             this.longEntry = longEntry;
             this.shortEntry = shortEntry;
         }
 
         public Decimal calculateSpread() {
-            return shortEntry.get(Param.LAST_PRICE).clone().divRD(longEntry.get(Param.LAST_PRICE)).add(-1);
+            return shortEntry.ticker.get(Param.LAST_PRICE).clone().divRD(longEntry.ticker.get(Param.LAST_PRICE)).add(-1);
         }
 
         public Decimal calculateEntrySpread() {
-            return shortEntry.get(Param.ASK_PRICE).clone().divRD(longEntry.get(Param.BID_PRICE)).add(-1);
+            return shortEntry.orderbook.getBestAskPrice().clone().divRD(longEntry.orderbook.getBestBidPrice()).add(-1);
         }
 
         public Decimal calculateExitSpread() {
-            return longEntry.get(Param.ASK_PRICE).clone().divRD(shortEntry.get(Param.BID_PRICE)).add(-1);
+            return longEntry.orderbook.getBestAskPrice().clone().divRD(shortEntry.orderbook.getBestBidPrice()).add(-1);
         }
 
-        public Ticker getLongEntry() {
+        public SinglePair getLongEntry() {
             return longEntry;
         }
 
-        public Ticker getShortEntry() {
+        public SinglePair getShortEntry() {
             return shortEntry;
         }
         
-        public String getExchanges() {
-            return longEntry.getExchange().getName() + " -> " + shortEntry.getExchange().getName();
+        public String getBunchName() {
+            return longEntry.exchange.getName() + " -> " + shortEntry.exchange.getName();
         }
 
         public String getInfo() {
-            return "[" + getExchanges() + "]: E:" +
+            return "[" + getBunchName() + "]: E:" +
             calculateEntrySpread().mul(100).roundDown(2) + "%, X:" +
             calculateExitSpread().mul(100).roundDown(2) + "%";
         }
 
-        public boolean isSuccsessful() {
-            return longEntry.isSuccsessful() && shortEntry.isSuccsessful();
-        }
-
-        public boolean isSubscribed() {
-            return longEntry.isSubscribed() && shortEntry.isSubscribed();
+        public boolean isClosed() {
+            return longEntry.isClosed() || shortEntry.isClosed();
         }
     }
 
@@ -242,7 +252,7 @@ public class TradingPair
             }
             try {
                 System.out.println(p.getPriceInfo());
-            } catch (NoTickersExeption e) {
+            } catch (NoSubscribtionsExeption e) {
                 System.out.println("нема тiкерiв");
             }
         }

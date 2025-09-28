@@ -9,51 +9,31 @@ import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 
 import org.json.JSONException;
-import org.json.JSONObject;
-import org.vasyaradulsoftware.arbitragelib.Message.InvalidFieldExeption;
-import org.vasyaradulsoftware.arbitragelib.Message.NotChangedExeption;
 import org.vasyaradulsoftware.arbitragelib.Message.Responce;
 import org.vasyaradulsoftware.arbitragelib.Message.Update;
-import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
-import org.vasyaradulsoftware.arbitragelib.exchange.Exchange;
-/*
- * Этот класс позволяет использовать биржи с поддержкой WebSocket.
- * Реализуйте предложенные абстрактные методы для отправки WebSocket запросов и обработки ответов для API нужной вам биржи. 
- */
+
 public abstract class WebSocketExchange implements Exchange, Consumer<String> {
 
     private WebSocketCallbackInvoker websocket;
 
     private String url;
-    private String name;
+    protected String name;
+    protected ExType type;
 
-    protected List<Ticker> subscribtions = new ArrayList<Ticker>();
-    private Map<Integer, Request> requests = new HashMap<Integer, Request>();
+    protected List<Subscribtion> subsctibtions = new ArrayList<Subscribtion>();
+    protected List<Ticker> tickers = new ArrayList<Ticker>();
+    protected List<Orderbook> orderbooks = new ArrayList<Orderbook>();
+    
+    private Map<Integer, Subscribtion> requests = new HashMap<Integer, Subscribtion>();
 
     private int lastReqId = 0;
 
-    /*
-     * Метод для создания запроса на подписку на обновление цены актива в реальном времени.
-     * Метод должен возвращать готовый для отправки запрос на подписку на обновление цены актива.
-     * Запрос на подписку для каждой биржи специфичен. По этому реалицация этого метода должна быть своя для каждой биржи.
-     * Ознакомьтесь с документацией API интересующей вас биржи для того чтобы понять как вы должны реализовывать этот метод.
-     */
-    protected abstract JSONObject[] generateSubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId);
-
-    /*
-     * Метод для создания запроса на отписку от обновлений цены. Всё тоже самое что и в предыдужем методе, только для отписки.
-     */
-    protected abstract JSONObject[] generateUnsubscribeTickerRequest(String baseCurrency, String quoteCurrency, int reqId);
-
-    /*
-     * Метод вызывается при при получении сообщения от ВебСокета и должен возвращять инстанс класса, реалезующего интерфейс Message.
-     * Интерфейс Message нужен для получения информации из сообений, полученных от API биржи.
-     */
     protected abstract Message parse(String message);
 
     private void handleMessage(Message message)
     {
-        //if (message.isResponce()) System.out.println("responce received from " + url + ": " + message.toString());
+        //System.out.println(message);
+        if (message.isResponce()) System.out.println("responce received from " + url + ": " + message.toString());
 
         if (message.isResponce())
         {
@@ -73,21 +53,25 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
         //System.out.println(message);
         if (!hasRequest(message.getResponceId())) return;
 
-        Request req = completeRequest(message.getResponceId());
+        Subscribtion req = completeRequest(message.getResponceId());
         if (message.isSubscribedSuccessful())
         {
-            if (req.isCompleted()) {
-                req.ticker.setSubscribedStatus();
-                subscribtions.add(req.ticker);
-            }
+            req.onSubscribingSuccessful();
+            subsctibtions.add(req);
         }
         else if (message.isUnsubscribedSuccessful())
         {
-            subscribtions.remove(req.ticker);
+            subsctibtions.remove(req);
+            tickers.remove(req);
+            orderbooks.remove(req);
         }
         else if(message.isSubscribeError())
         {
-            req.ticker.subscribingUnsuccessful();
+            if (!req.isSubscribed()) {
+                req.onSubscribingFailed();
+                tickers.remove(req);
+                orderbooks.remove(req);
+            }
             System.out.println("subscribe error: " + message);
         }
     }
@@ -95,72 +79,42 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     private void handleUpdate(Update update)
     {
         //System.out.println(update);
-        subscribtions
+        subsctibtions
             .stream()
-            .forEach(t ->
-            {
-                if (update.getBaseCurrency().equals(t.getBaseCurrency()) && update.getQuoteCurrency().equals(t.getQuoteCurrency()))
-                    for (Param p : Param.values()) {
-                        try {
-                            t.update(p, update.getTimestamp(), update.get(p));
-                        } catch (NotChangedExeption e) {
-                            t.update(p, update.getTimestamp());
-                        } catch (InvalidFieldExeption e) {}
-                    }
+            .forEach(s -> {
+                if (
+                    update.getBaseCurrency().equals(s.baseCurrency) &&
+                    update.getQuoteCurrency().equals(s.quoteCurrency) &&
+                    update.getChannel().equals(s.channel)
+                )
+                    s.update(update.getJSONObject());
             });
     }
 
-    private class Request {
-        private Ticker ticker;
-        private int confirmations;
-        
-
-        public Request(Ticker ticker)
-        {
-            this.ticker = ticker;
-            this.confirmations = 0;
-        }
-
-        public void setConfirmations(int confirmations) {
-            this.confirmations = confirmations;
-        }
-
-        public boolean confirm() {
-            if (confirmations-- <= 0) return true;
-            return false;
-        }
-
-        public boolean isCompleted() {
-            if (confirmations <= 0) return true;
-            return false;
-        }
-
-    }
-
-    protected int regRequest(Request request) {
+    protected int regRequest(Subscribtion request) {
         int reqId = lastReqId++;
         requests.put(reqId, request);
         //System.out.println("request " + reqId + " registred");
         return reqId;
     }
 
-    protected Request completeRequest(int reqId) {
-        if (requests.get(reqId).confirm()) return requests.remove(reqId);
-        return requests.get(reqId);
+    protected Subscribtion completeRequest(int reqId) {
+        return requests.remove(reqId);
     }
 
     protected boolean hasRequest(int reqId) {
         return requests.containsKey(reqId);
     }
     
-    protected WebSocketExchange(String url, String name)
+    protected WebSocketExchange(String url, String name, ExType type)
     {
         this.url = url;
         this.name = name;
+        this.type = type;
         websocket = null;
     }
 
-    private void updateWebSocketAndSend(String message) {
+    protected void send(String message) {
         if (websocket == null || websocket.isClosed() || websocket.isClosing())
         {
             websocket = null;
@@ -176,48 +130,57 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
     }
 
     @Override
-    public Ticker subscribeTicker(String baseCurrency, String quoteCurrency)
+    public Ticker getTicker(String baseCurrency, String quoteCurrency)
     {
         try
         {
-            return subscribtions
+            Ticker ticker = tickers
                 .stream()
                 .filter(t ->
-                    t.getBaseCurrency().equals(baseCurrency) &&
-                    t.getQuoteCurrency().equals(quoteCurrency)
+                    t.baseCurrency.equals(baseCurrency) &&
+                    t.quoteCurrency.equals(quoteCurrency) &&
+                    !t.isClosed()
                 )
                 .iterator()
                 .next();
+            ticker.follow();
+            return ticker;
         } 
         catch (NoSuchElementException e)
         {
-            Ticker ticker = new Ticker(baseCurrency, quoteCurrency, this);
-
-            ticker.setSubscribingStatus();
-
-            Request req = new Request(ticker);
-            JSONObject[] messages = generateSubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), regRequest(req));
-            req.setConfirmations(messages.length);
-
-            for (JSONObject message : messages)
-                updateWebSocketAndSend(message.toString());
-
+            Ticker ticker = createTicker(baseCurrency, quoteCurrency);
+            tickers.add(ticker);
             return ticker;
         }
     }
 
-    @Override
-    public void unsubscribeTicker(Ticker ticker) {
-        if (subscribtions.contains(ticker)) {
+    protected abstract Ticker createTicker(String baseCurrency, String quoteCurrency);
 
-            Request req = new Request(ticker);
-            JSONObject[] messages = generateUnsubscribeTickerRequest(ticker.getBaseCurrency(), ticker.getQuoteCurrency(), regRequest(req));
-            req.setConfirmations(messages.length);
-            
-            for (JSONObject message : messages)
-                updateWebSocketAndSend(message.toString());
+    @Override
+    public Orderbook getOrderbook(String baseCurrency, String quoteCurrency) {
+        try
+        {
+            Orderbook orderbook = orderbooks
+                .stream()
+                .filter(t ->
+                    t.baseCurrency.equals(baseCurrency) &&
+                    t.quoteCurrency.equals(quoteCurrency) &&
+                    !t.isClosed()
+                )
+                .iterator()
+                .next();
+            orderbook.follow();
+            return orderbook;
+        } 
+        catch (NoSuchElementException e)
+        {
+            Orderbook orderbook = createOrderbook(baseCurrency, quoteCurrency);
+            orderbooks.add(orderbook);
+            return orderbook;
         }
     }
+
+    protected abstract Orderbook createOrderbook(String baseCurrency, String quoteCurrency);
 
     @Override
     public String getName() {

@@ -5,7 +5,7 @@ import java.net.URISyntaxException;
 public class BybitFutures extends Bybit {
 
     protected BybitFutures() throws URISyntaxException {
-        super("wss://stream.bybit.com/v5/public/linear", "Bybit(futures)");
+        super("wss://stream.bybit.com/v5/public/linear", "Bybit(futures)", ExType.FUTURES);
     }
     
     public static BybitFutures create() {
