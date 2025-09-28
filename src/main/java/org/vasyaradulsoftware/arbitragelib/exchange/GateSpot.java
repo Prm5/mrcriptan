@@ -1,6 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,17 +15,9 @@ import decimal.Decimal;
 
 public class GateSpot extends Gate
 {
-    private GateSpot() throws URISyntaxException
+    public GateSpot()
     {
-        super("wss://api.gateio.ws/ws/v4/", "Gate(spot)", ExType.SPOT);
-    }
-
-    public static GateSpot create() {
-        try {
-            return new GateSpot();
-        } catch (URISyntaxException e) {
-            return null;
-        }
+        super("wss://api.gateio.ws/ws/v4/", "GateSpot", ExType.SPOT);
     }
 
     @Override

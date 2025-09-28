@@ -1,7 +1,6 @@
 package org.vasyaradulsoftware.arbitragelib;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 
@@ -12,8 +11,8 @@ public class WebSocketCallbackInvoker extends WebSocketClient {
 
     private Consumer<String> callback;
     
-    public WebSocketCallbackInvoker(String url, Consumer<String> callback) throws URISyntaxException {
-        super(new URI(url));
+    public WebSocketCallbackInvoker(String url, Consumer<String> callback) {
+        super(URI.create(url));
 
         this.callback = callback;
 

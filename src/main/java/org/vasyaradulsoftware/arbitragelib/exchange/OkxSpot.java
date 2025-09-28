@@ -1,6 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,18 +12,9 @@ import decimal.Decimal;
 
 public class OkxSpot extends Okx
 {
-    protected OkxSpot() throws URISyntaxException
+    public OkxSpot()
     {
-        super("Okx(spot)", ExType.SPOT);
-    }
-
-    public static OkxSpot create()
-    {
-        try {
-            return new OkxSpot();
-        } catch (URISyntaxException e) {
-            return null;
-        }
+        super("OkxSpot", ExType.SPOT);
     }
 
     @Override

@@ -5,11 +5,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 import org.vasyaradulsoftware.arbitragelib.exchange.BybitFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.BybitSpot;
-import org.vasyaradulsoftware.arbitragelib.exchange.GateFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.GateSpot;
-import org.vasyaradulsoftware.arbitragelib.exchange.OkxFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.OkxSpot;
 
 import decimal.Decimal;
 
@@ -141,7 +136,7 @@ public abstract class Orderbook extends Subscribtion
 
     public static void main(String[] args)
     {
-        Orderbook ob = BybitFutures.create().getOrderbook("BTC", "USDT");
+        Orderbook ob = new BybitFutures().getOrderbook("BTC", "USDT");
         String t;
         while (true) {
             t = ob.getTable();

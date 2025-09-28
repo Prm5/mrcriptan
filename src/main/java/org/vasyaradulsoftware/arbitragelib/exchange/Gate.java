@@ -1,7 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.net.URISyntaxException;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vasyaradulsoftware.arbitragelib.Message;
@@ -13,7 +11,7 @@ import org.vasyaradulsoftware.arbitragelib.Subscribtion.Channel;
 public abstract class Gate extends WebSocketExchange
 {
 
-    protected Gate(String url, String name, ExType type) throws URISyntaxException
+    protected Gate(String url, String name, ExType type)
     {
         super(url, name, type);
     }

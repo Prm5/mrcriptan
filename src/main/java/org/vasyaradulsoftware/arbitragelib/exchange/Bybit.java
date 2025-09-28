@@ -1,6 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +17,7 @@ import decimal.Decimal;
 
 public abstract class Bybit extends WebSocketExchange  {
 
-    protected Bybit(String url, String name, ExType type) throws URISyntaxException {
+    protected Bybit(String url, String name, ExType type) {
         super(url, name, type);
     }
 
@@ -50,6 +49,8 @@ public abstract class Bybit extends WebSocketExchange  {
         public void update(JSONObject msg) {
             try {
                 update(Param.LAST_PRICE, msg.getLong("ts"), new Decimal().parse(msg.getJSONObject("data").getString("lastPrice")));
+            } catch (JSONException e) {
+                update(Param.LAST_PRICE, msg.getLong("ts"));
             } catch (ParseException e) {
                 e.printStackTrace();
             }

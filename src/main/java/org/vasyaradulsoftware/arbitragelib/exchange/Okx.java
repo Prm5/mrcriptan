@@ -1,6 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib.exchange;
 
-import java.net.URISyntaxException;
 import java.text.ParseException;
 
 import org.json.JSONArray;
@@ -15,7 +14,7 @@ import decimal.Decimal;
 
 public abstract class Okx extends WebSocketExchange
 {
-    protected Okx(String name, ExType type) throws URISyntaxException
+    public Okx(String name, ExType type)
     {
         super("wss://ws.okx.com:8443/ws/v5/public", name, type);
     }

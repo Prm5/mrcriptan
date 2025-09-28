@@ -1,6 +1,5 @@
 package org.vasyaradulsoftware.arbitragelib;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -118,12 +117,7 @@ public abstract class WebSocketExchange implements Exchange, Consumer<String> {
         if (websocket == null || websocket.isClosed() || websocket.isClosing())
         {
             websocket = null;
-
-            try {
-                websocket = new WebSocketCallbackInvoker(url, this);
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            }
+            websocket = new WebSocketCallbackInvoker(url, this);
         }
         System.out.println("sending message to " + url + ": " + message);
         websocket.send(message);

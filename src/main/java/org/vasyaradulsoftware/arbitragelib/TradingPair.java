@@ -10,16 +10,11 @@ import java.util.NoSuchElementException;
 import java.util.TimeZone;
 
 import org.vasyaradulsoftware.arbitragelib.Ticker.Param;
-import org.vasyaradulsoftware.arbitragelib.exchange.GateFutures;
-import org.vasyaradulsoftware.arbitragelib.exchange.GateSpot;
-
 
 import decimal.Decimal;
 
 public class TradingPair
 {
-    private static List<Exchange> exchanges = new ArrayList<Exchange>();
-
     private static List<TradingPair> traidingPairs = new ArrayList<TradingPair>();
     private int followCounter = 1;
 
@@ -31,17 +26,6 @@ public class TradingPair
 
     private long timestamp;
     private DateFormat dateFormat;
-
-
-    public static void init()
-    {
-        //exchanges.add(BybitSpot.create());
-        //exchanges.add(BybitFutures.create());
-        //exchanges.add(OkxSpot.create());
-        //exchanges.add(OkxFutures.create());
-        exchanges.add(GateSpot.create());
-        exchanges.add(GateFutures.create());
-    }
 
     public static TradingPair follow(String baseCurrency, String quoteCurrency) {
         try {
@@ -75,7 +59,7 @@ public class TradingPair
         this.baseCurrency = baseCurrency;
         this.quoteCurrency = quoteCurrency;
 
-        for (Exchange e : exchanges) {
+        for (Exchange e : Exchange.publicExchanges) {
             subscribtions.add(new SinglePair(e));
         }
 
@@ -240,7 +224,7 @@ public class TradingPair
     }
 
     public static void main(String[] args) {
-        TradingPair.init();
+        Exchange.initExchanges();
 
         TradingPair p = TradingPair.follow("BTC", "USDT");
 
@@ -251,7 +235,7 @@ public class TradingPair
                 e.printStackTrace();
             }
             try {
-                System.out.println(p.getPriceInfo());
+                System.out.println(p.getSpreadInfo());
             } catch (NoSubscribtionsExeption e) {
                 System.out.println("нема тiкерiв");
             }

@@ -2,7 +2,6 @@ package org.vasyaradulsoftware.arbitragelib.exchange;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -22,17 +21,9 @@ import decimal.Decimal;
 
 public class GateFutures extends Gate
 {
-    private GateFutures() throws URISyntaxException
+    public GateFutures()
     {
-        super("wss://fx-ws.gateio.ws/v4/ws/usdt", "Gate(futures)", ExType.FUTURES);
-    }
-
-    public static GateFutures create() {
-        try {
-            return new GateFutures();
-        } catch (URISyntaxException e) {
-            return null;
-        }
+        super("wss://fx-ws.gateio.ws/v4/ws/usdt", "GateFutures", ExType.FUTURES);
     }
 
     @Override

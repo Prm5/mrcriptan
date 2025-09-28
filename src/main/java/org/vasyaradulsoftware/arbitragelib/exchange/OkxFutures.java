@@ -2,7 +2,6 @@ package org.vasyaradulsoftware.arbitragelib.exchange;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -18,18 +17,9 @@ import decimal.Decimal;
 
 public class OkxFutures extends Okx
 {
-    protected OkxFutures() throws URISyntaxException
+    public OkxFutures()
     {
-        super("Okx(futures)", ExType.FUTURES);
-    }
-
-    public static OkxFutures create()
-    {
-        try {
-            return new OkxFutures();
-        } catch (URISyntaxException e) {
-            return null;
-        }
+        super("OkxFutures", ExType.FUTURES);
     }
 
     @Override

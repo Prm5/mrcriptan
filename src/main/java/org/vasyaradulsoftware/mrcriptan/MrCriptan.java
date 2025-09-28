@@ -1,12 +1,12 @@
 package org.vasyaradulsoftware.mrcriptan;
 
-import org.vasyaradulsoftware.arbitragelib.TradingPair;
+import org.vasyaradulsoftware.arbitragelib.Exchange;
 
 public class MrCriptan {
 
     public static void main(String[] args)
     {    
-        TradingPair.init();
+        Exchange.initExchanges();
 
         String botToken = System.getenv("BOT_TOKEN");
         System.out.println(botToken);
